@@ -21,6 +21,8 @@ _MARKUP_ERROR_MARKERS = (
     "can't find end of the entity",
     "cant find end of the entity",
     "entity is not closed",
+    "can't parse inline expression",
+    "cant parse inline expression",
 )
 
 
