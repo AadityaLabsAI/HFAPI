@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from telegram.error import BadRequest
 
-from bot.telegram_utils import reply_text_safe
+from bot.telegram_utils import _is_markup_error, reply_text_safe
 
 
 class FakeMessage:
@@ -33,6 +33,28 @@ def test_reply_text_safe_retries_without_markup_after_bad_request():
     assert len(message.calls) == 2
     assert message.calls[0][1]["parse_mode"] == "MarkdownV2"
     assert "parse_mode" not in message.calls[1][1]
+
+
+def test_reply_text_safe_preserves_fallback_delivery_options():
+    message = FakeMessage(failures=1)
+
+    result = asyncio.run(
+        reply_text_safe(
+            message,
+            "**status**",
+            parse_mode="MarkdownV2",
+            disable_web_page_preview=True,
+        )
+    )
+
+    assert result == "sent"
+    assert message.calls[1][1] == {"disable_web_page_preview": True}
+
+
+def test_markup_error_detection_covers_telegram_variants():
+    assert _is_markup_error(BadRequest("Can't parse inline expression"))
+    assert _is_markup_error(BadRequest("Entity is not closed"))
+    assert not _is_markup_error(BadRequest("Message is too long"))
 
 
 def test_reply_text_safe_preserves_non_markup_bad_request():
