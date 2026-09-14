@@ -5,7 +5,12 @@ import asyncio
 import pytest
 from telegram.error import BadRequest
 
-from bot.telegram_utils import _is_markup_error, reply_text_safe
+from bot.telegram_utils import (
+    TELEGRAM_TEXT_LIMIT,
+    _is_markup_error,
+    _split_text,
+    reply_text_safe,
+)
 
 
 class FakeMessage:
@@ -90,3 +95,33 @@ def test_reply_text_safe_does_not_change_successful_formatted_reply():
         "parse_mode": "MarkdownV2",
         "disable_web_page_preview": True,
     }
+
+
+def test_split_text_is_no_longer_than_transport_limit():
+    text = ("word " * 2000).strip()
+
+    chunks = _split_text(text)
+
+    assert len(chunks) > 1
+    assert all(len(chunk) <= TELEGRAM_TEXT_LIMIT - 16 for chunk in chunks)
+    assert "".join(chunks).replace(" ", "") == text.replace(" ", "")
+
+
+def test_reply_text_safe_splits_long_responses_before_delivery():
+    message = FakeMessage()
+    text = "x" * (TELEGRAM_TEXT_LIMIT + 100)
+
+    result = asyncio.run(reply_text_safe(message, text))
+
+    assert result == "sent"
+    assert len(message.calls) == 2
+    assert all(len(call[0]) <= TELEGRAM_TEXT_LIMIT - 16 for call in message.calls)
+    assert "".join(call[0] for call in message.calls) == text
+
+
+def test_split_text_prefers_newline_boundary():
+    text = "a" * 100 + "\n" + "b" * 100
+
+    chunks = _split_text(text, limit=120)
+
+    assert chunks == ["a" * 100, "b" * 100]
