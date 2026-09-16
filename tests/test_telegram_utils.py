@@ -97,14 +97,14 @@ def test_reply_text_safe_does_not_change_successful_formatted_reply():
     }
 
 
-def test_split_text_is_no_longer_than_transport_limit():
+def test_split_text_is_no_longer_than_transport_limit_and_lossless():
     text = ("word " * 2000).strip()
 
     chunks = _split_text(text)
 
     assert len(chunks) > 1
     assert all(len(chunk) <= TELEGRAM_TEXT_LIMIT - 16 for chunk in chunks)
-    assert "".join(chunks).replace(" ", "") == text.replace(" ", "")
+    assert "".join(chunks) == text
 
 
 def test_reply_text_safe_splits_long_responses_before_delivery():
@@ -119,9 +119,14 @@ def test_reply_text_safe_splits_long_responses_before_delivery():
     assert "".join(call[0] for call in message.calls) == text
 
 
-def test_split_text_prefers_newline_boundary():
+def test_split_text_preserves_newline_boundary():
     text = "a" * 100 + "\n" + "b" * 100
 
     chunks = _split_text(text, limit=120)
 
-    assert chunks == ["a" * 100, "b" * 100]
+    assert chunks == ["a" * 100 + "\n", "b" * 100]
+
+
+def test_split_text_rejects_non_positive_limit():
+    with pytest.raises(ValueError, match="greater than zero"):
+        _split_text("text", limit=0)

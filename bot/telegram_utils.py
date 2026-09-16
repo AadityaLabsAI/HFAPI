@@ -38,7 +38,9 @@ def _is_markup_error(error: BadRequest) -> bool:
 
 
 def _split_text(text: str, limit: int = _REPLY_CHUNK_LIMIT) -> list[str]:
-    """Split text into transport-safe chunks, preferring whitespace boundaries."""
+    """Split text into safe chunks without losing whitespace or newlines."""
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
     if len(text) <= limit:
         return [text]
 
@@ -48,16 +50,16 @@ def _split_text(text: str, limit: int = _REPLY_CHUNK_LIMIT) -> list[str]:
         boundary = remaining.rfind("\n", 0, limit + 1)
         if boundary < limit // 2:
             boundary = remaining.rfind(" ", 0, limit + 1)
+
         if boundary < limit // 2:
-            boundary = limit
+            chunks.append(remaining[:limit])
+            remaining = remaining[limit:]
+            continue
 
-        chunk = remaining[:boundary].rstrip()
-        if not chunk:
-            chunk = remaining[:limit]
-            boundary = len(chunk)
-
-        chunks.append(chunk)
-        remaining = remaining[boundary:].lstrip()
+        # Keep the delimiter in the preceding chunk so joining chunks exactly
+        # reconstructs the original text.
+        chunks.append(remaining[: boundary + 1])
+        remaining = remaining[boundary + 1 :]
 
     if remaining:
         chunks.append(remaining)
