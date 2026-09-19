@@ -21,19 +21,22 @@ def cancel_task_safely(task: asyncio.Task[Any] | None) -> bool:
 
 
 async def cancel_and_wait(task: asyncio.Task[Any] | None) -> bool:
-    """Cancel an owned task and await it so cancellation is fully consumed.
+    """Cancel an owned task and await it so its outcome is consumed.
 
     Returns ``True`` when a live task was cancelled and ``False`` when the
     task was missing or already complete. ``CancelledError`` from the owned
     task is intentionally swallowed; cancellation is the expected outcome for
-    a task being cleaned up by its owner.
+    a task being cleaned up by its owner. A task that completed with another
+    exception is still awaited and that exception is allowed to propagate so
+    failures are never silently lost.
     """
-    requested = cancel_task_safely(task)
-    if not requested or task is None:
+    if task is None:
         return False
 
+    requested = cancel_task_safely(task)
     try:
         await task
     except asyncio.CancelledError:
         pass
-    return True
+
+    return requested
