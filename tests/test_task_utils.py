@@ -2,6 +2,8 @@
 
 import asyncio
 
+import pytest
+
 from bot.task_utils import cancel_and_wait, cancel_task_safely
 
 
@@ -58,5 +60,19 @@ def test_cancel_and_wait_is_safe_for_missing_or_done_task():
         task = asyncio.create_task(completed())
         await task
         assert await cancel_and_wait(task) is False
+
+    asyncio.run(scenario())
+
+
+def test_cancel_and_wait_consumes_completed_task_exception():
+    async def failing():
+        raise RuntimeError("background failure")
+
+    async def scenario():
+        task = asyncio.create_task(failing())
+        await asyncio.sleep(0)
+        with pytest.raises(RuntimeError, match="background failure"):
+            await cancel_and_wait(task)
+        assert task.done()
 
     asyncio.run(scenario())
