@@ -71,20 +71,25 @@ async def reply_text_safe(message: Any, text: str, **kwargs: Any) -> Any:
 
     Existing formatting is preserved when valid. Malformed Markdown/MarkdownV2
     is retried as plain text, while oversized responses are split before they
-    reach Telegram. Non-markup ``BadRequest`` failures are propagated because
-    retrying them can hide real delivery errors.
+    reach Telegram. Multi-part replies deliberately use plain text because a
+    markup entity can span a chunk boundary and make the entire message invalid.
+    Non-markup ``BadRequest`` failures are propagated because retrying them can
+    hide real delivery errors.
 
     For a multi-part response, the return value is the Telegram result of the
     final successfully delivered chunk, matching normal single-message use.
     """
     chunks = _split_text(text)
+    delivery_kwargs = kwargs if len(chunks) == 1 else {
+        key: value for key, value in kwargs.items() if key != "parse_mode"
+    }
     last_result: Any = None
 
     for chunk in chunks:
         try:
-            last_result = await message.reply_text(chunk, **kwargs)
+            last_result = await message.reply_text(chunk, **delivery_kwargs)
         except BadRequest as exc:
-            parse_mode = kwargs.get("parse_mode")
+            parse_mode = delivery_kwargs.get("parse_mode")
             if not parse_mode or not _is_markup_error(exc):
                 raise
 
@@ -92,7 +97,7 @@ async def reply_text_safe(message: Any, text: str, **kwargs: Any) -> Any:
                 "Telegram rejected formatted reply; retrying as plain text",
                 exc_info=True,
             )
-            fallback_kwargs = dict(kwargs)
+            fallback_kwargs = dict(delivery_kwargs)
             fallback_kwargs.pop("parse_mode", None)
             last_result = await message.reply_text(chunk, **fallback_kwargs)
 
