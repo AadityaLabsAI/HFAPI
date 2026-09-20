@@ -130,3 +130,17 @@ def test_split_text_preserves_newline_boundary():
 def test_split_text_rejects_non_positive_limit():
     with pytest.raises(ValueError, match="greater than zero"):
         _split_text("text", limit=0)
+
+
+def test_reply_text_safe_disables_markup_for_multi_part_replies():
+    message = FakeMessage()
+    text = "**status** " + ("x" * TELEGRAM_TEXT_LIMIT)
+
+    result = asyncio.run(
+        reply_text_safe(message, text, parse_mode="MarkdownV2", disable_web_page_preview=True)
+    )
+
+    assert result == "sent"
+    assert len(message.calls) > 1
+    assert all("parse_mode" not in kwargs for _, kwargs in message.calls)
+    assert all(kwargs == {"disable_web_page_preview": True} for _, kwargs in message.calls)
