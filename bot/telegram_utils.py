@@ -9,7 +9,7 @@ user-facing response.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from telegram.error import BadRequest
 
@@ -66,6 +66,28 @@ def _split_text(text: str, limit: int = _REPLY_CHUNK_LIMIT) -> list[str]:
     return chunks
 
 
+async def _call_with_markup_fallback(
+    sender: Callable[..., Awaitable[Any]],
+    text: str,
+    kwargs: dict[str, Any],
+) -> Any:
+    """Call a Telegram text sender and retry only for markup parse errors."""
+    try:
+        return await sender(text, **kwargs)
+    except BadRequest as exc:
+        parse_mode = kwargs.get("parse_mode")
+        if not parse_mode or not _is_markup_error(exc):
+            raise
+
+        logger.warning(
+            "Telegram rejected formatted text; retrying as plain text",
+            exc_info=True,
+        )
+        fallback_kwargs = dict(kwargs)
+        fallback_kwargs.pop("parse_mode", None)
+        return await sender(text, **fallback_kwargs)
+
+
 async def reply_text_safe(message: Any, text: str, **kwargs: Any) -> Any:
     """Reply safely, falling back from markup and splitting oversized text.
 
@@ -86,19 +108,24 @@ async def reply_text_safe(message: Any, text: str, **kwargs: Any) -> Any:
     last_result: Any = None
 
     for chunk in chunks:
-        try:
-            last_result = await message.reply_text(chunk, **delivery_kwargs)
-        except BadRequest as exc:
-            parse_mode = delivery_kwargs.get("parse_mode")
-            if not parse_mode or not _is_markup_error(exc):
-                raise
-
-            logger.warning(
-                "Telegram rejected formatted reply; retrying as plain text",
-                exc_info=True,
-            )
-            fallback_kwargs = dict(delivery_kwargs)
-            fallback_kwargs.pop("parse_mode", None)
-            last_result = await message.reply_text(chunk, **fallback_kwargs)
+        last_result = await _call_with_markup_fallback(
+            message.reply_text,
+            chunk,
+            delivery_kwargs,
+        )
 
     return last_result
+
+
+async def edit_text_safe(message: Any, text: str, **kwargs: Any) -> Any:
+    """Edit a Telegram message with the same markup safety guarantees.
+
+    Edits are intentionally kept to one message because Telegram cannot
+    represent a multi-part edit. Oversized edit payloads therefore propagate
+    the Bot API error rather than silently changing the message contract.
+    """
+    if len(text) > _REPLY_CHUNK_LIMIT:
+        raise ValueError(
+            f"edited text exceeds safe Telegram limit of {_REPLY_CHUNK_LIMIT} characters"
+        )
+    return await _call_with_markup_fallback(message.edit_text, text, dict(kwargs))
