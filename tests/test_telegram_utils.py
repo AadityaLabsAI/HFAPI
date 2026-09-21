@@ -9,6 +9,7 @@ from bot.telegram_utils import (
     TELEGRAM_TEXT_LIMIT,
     _is_markup_error,
     _split_text,
+    edit_text_safe,
     reply_text_safe,
 )
 
@@ -20,11 +21,18 @@ class FakeMessage:
         self.calls = []
 
     async def reply_text(self, text, **kwargs):
-        self.calls.append((text, kwargs))
+        self.calls.append(("reply", text, kwargs))
         if self.failures:
             self.failures -= 1
             raise BadRequest(self.error_message)
         return "sent"
+
+    async def edit_text(self, text, **kwargs):
+        self.calls.append(("edit", text, kwargs))
+        if self.failures:
+            self.failures -= 1
+            raise BadRequest(self.error_message)
+        return "edited"
 
 
 def test_reply_text_safe_retries_without_markup_after_bad_request():
@@ -36,8 +44,8 @@ def test_reply_text_safe_retries_without_markup_after_bad_request():
 
     assert result == "sent"
     assert len(message.calls) == 2
-    assert message.calls[0][1]["parse_mode"] == "MarkdownV2"
-    assert "parse_mode" not in message.calls[1][1]
+    assert message.calls[0][2]["parse_mode"] == "MarkdownV2"
+    assert "parse_mode" not in message.calls[1][2]
 
 
 def test_reply_text_safe_preserves_fallback_delivery_options():
@@ -53,7 +61,7 @@ def test_reply_text_safe_preserves_fallback_delivery_options():
     )
 
     assert result == "sent"
-    assert message.calls[1][1] == {"disable_web_page_preview": True}
+    assert message.calls[1][2] == {"disable_web_page_preview": True}
 
 
 def test_markup_error_detection_covers_telegram_variants():
@@ -91,7 +99,7 @@ def test_reply_text_safe_does_not_change_successful_formatted_reply():
 
     assert result == "sent"
     assert len(message.calls) == 1
-    assert message.calls[0][1] == {
+    assert message.calls[0][2] == {
         "parse_mode": "MarkdownV2",
         "disable_web_page_preview": True,
     }
@@ -115,8 +123,8 @@ def test_reply_text_safe_splits_long_responses_before_delivery():
 
     assert result == "sent"
     assert len(message.calls) == 2
-    assert all(len(call[0]) <= TELEGRAM_TEXT_LIMIT - 16 for call in message.calls)
-    assert "".join(call[0] for call in message.calls) == text
+    assert all(len(call[1]) <= TELEGRAM_TEXT_LIMIT - 16 for call in message.calls)
+    assert "".join(call[1] for call in message.calls) == text
 
 
 def test_split_text_preserves_newline_boundary():
@@ -142,5 +150,37 @@ def test_reply_text_safe_disables_markup_for_multi_part_replies():
 
     assert result == "sent"
     assert len(message.calls) > 1
-    assert all("parse_mode" not in kwargs for _, kwargs in message.calls)
-    assert all(kwargs == {"disable_web_page_preview": True} for _, kwargs in message.calls)
+    assert all("parse_mode" not in kwargs for _, _, kwargs in message.calls)
+    assert all(kwargs == {"disable_web_page_preview": True} for _, _, kwargs in message.calls)
+
+
+def test_edit_text_safe_retries_markup_failure_without_parse_mode():
+    message = FakeMessage(failures=1)
+
+    result = asyncio.run(
+        edit_text_safe(message, "**updated**", parse_mode="MarkdownV2", reply_markup="keyboard")
+    )
+
+    assert result == "edited"
+    assert len(message.calls) == 2
+    assert message.calls[0][0] == "edit"
+    assert message.calls[0][2]["parse_mode"] == "MarkdownV2"
+    assert message.calls[1][2] == {"reply_markup": "keyboard"}
+
+
+def test_edit_text_safe_propagates_non_markup_bad_request():
+    message = FakeMessage(failures=1, error_message="Message is too long")
+
+    with pytest.raises(BadRequest, match="Message is too long"):
+        asyncio.run(edit_text_safe(message, "updated", parse_mode="MarkdownV2"))
+
+    assert len(message.calls) == 1
+
+
+def test_edit_text_safe_rejects_oversized_text_before_api_call():
+    message = FakeMessage()
+
+    with pytest.raises(ValueError, match="exceeds safe Telegram limit"):
+        asyncio.run(edit_text_safe(message, "x" * TELEGRAM_TEXT_LIMIT))
+
+    assert message.calls == []
