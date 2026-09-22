@@ -9,6 +9,7 @@ from typing import Optional
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 from ..telegram_utils import reply_text_safe
+from ..security_utils import redact_sensitive_data
 from .scheduler import AutoUpdateScheduler
 
 logger = logging.getLogger(__name__)
@@ -118,8 +119,9 @@ async def cmd_run_manual_update(update: Update, context: ContextTypes.DEFAULT_TY
         await reply_text_safe(update.message, message, parse_mode='MarkdownV2')
         
     except Exception as e:
-        logger.error(f"Manual update failed: {e}")
-        await reply_text_safe(update.message, f"❌ Update failed: {e}")
+        safe_error = redact_sensitive_data(str(e))
+        logger.error(f"Manual update failed: {safe_error}")
+        await reply_text_safe(update.message, "❌ Update failed. Please check the bot logs for details.")
 
 
 async def cmd_test_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -135,8 +137,9 @@ async def cmd_test_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await reply_text_safe(update.message, message, parse_mode='MarkdownV2')
         
     except Exception as e:
-        logger.error(f"Test update failed: {e}")
-        await reply_text_safe(update.message, f"❌ Test failed: {e}")
+        safe_error = redact_sensitive_data(str(e))
+        logger.error(f"Test update failed: {safe_error}")
+        await reply_text_safe(update.message, "❌ Test update failed. Please check the bot logs for details.")
 
 
 def get_auto_update_handlers():
