@@ -106,7 +106,7 @@ async def cmd_auto_update_status(update: Update, context: ContextTypes.DEFAULT_T
 
 async def cmd_run_manual_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Run manual model update"""
-    await update.message.reply_text("🔍 Starting manual model update\\.\\.\\.")
+    await reply_text_safe(update.message, "🔍 Starting manual model update\\.\\.\\.")
     
     try:
         result = await auto_update_integration.run_manual_update(dry_run=False)
@@ -119,12 +119,12 @@ async def cmd_run_manual_update(update: Update, context: ContextTypes.DEFAULT_TY
         
     except Exception as e:
         logger.error(f"Manual update failed: {e}")
-        await update.message.reply_text(f"❌ Update failed: {str(e)}")
+        await reply_text_safe(update.message, f"❌ Update failed: {e}")
 
 
 async def cmd_test_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Run dry-run update (no changes applied)"""
-    await update.message.reply_text("🧪 Running test update \\(dry run\\)\\.\\.\\.")
+    await reply_text_safe(update.message, "🧪 Running test update \\(dry run\\)\\.\\.\\.")
     
     try:
         result = await auto_update_integration.run_manual_update(dry_run=True)
@@ -136,7 +136,7 @@ async def cmd_test_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         logger.error(f"Test update failed: {e}")
-        await update.message.reply_text(f"❌ Test failed: {str(e)}")
+        await reply_text_safe(update.message, f"❌ Test failed: {e}")
 
 
 def get_auto_update_handlers():
