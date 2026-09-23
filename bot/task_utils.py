@@ -20,7 +20,11 @@ def cancel_task_safely(task: asyncio.Task[Any] | None) -> bool:
     return True
 
 
-async def cancel_and_wait(task: asyncio.Task[Any] | None) -> bool:
+async def cancel_and_wait(
+    task: asyncio.Task[Any] | None,
+    *,
+    timeout: float | None = None,
+) -> bool:
     """Cancel an owned task and await it so its outcome is consumed.
 
     Returns ``True`` when a live task was cancelled and ``False`` when the
@@ -29,13 +33,23 @@ async def cancel_and_wait(task: asyncio.Task[Any] | None) -> bool:
     a task being cleaned up by its owner. A task that completed with another
     exception is still awaited and that exception is allowed to propagate so
     failures are never silently lost.
+
+    ``timeout`` optionally bounds cleanup time. When provided, it must be
+    non-negative; ``asyncio.TimeoutError`` is raised if the owned task does not
+    finish cleanup within the requested interval.
     """
+    if timeout is not None and timeout < 0:
+        raise ValueError("timeout must be non-negative")
+
     if task is None:
         return False
 
     requested = cancel_task_safely(task)
     try:
-        await task
+        if timeout is None:
+            await task
+        else:
+            await asyncio.wait_for(task, timeout=timeout)
     except asyncio.CancelledError:
         pass
 
