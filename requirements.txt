@@ -54,7 +54,7 @@ pydantic==2.11.9
 # cryptography: Latest version with all 2025 security patches
 # psutil: Latest version with system monitoring improvements
 cryptography==46.0.1
-psutil==7.1.0
+psutil==7.2.2
 
 # Version validation and dependency management - ESSENTIAL
 # packaging: Required by dependency_validator.py for version checking
