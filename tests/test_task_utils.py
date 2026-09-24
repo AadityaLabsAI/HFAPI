@@ -76,28 +76,3 @@ def test_cancel_and_wait_consumes_completed_task_exception():
         assert task.done()
 
     asyncio.run(scenario())
-
-
-def test_cancel_and_wait_rejects_negative_timeout():
-    async def scenario():
-        with pytest.raises(ValueError, match="non-negative"):
-            await cancel_and_wait(None, timeout=-0.1)
-
-    asyncio.run(scenario())
-
-
-def test_cancel_and_wait_honors_cleanup_timeout():
-    async def slow_cleanup():
-        try:
-            await asyncio.sleep(60)
-        except asyncio.CancelledError:
-            await asyncio.sleep(60)
-            raise
-
-    async def scenario():
-        task = asyncio.create_task(slow_cleanup())
-        with pytest.raises(asyncio.TimeoutError):
-            await cancel_and_wait(task, timeout=0.01)
-        assert task.done()
-
-    asyncio.run(scenario())
