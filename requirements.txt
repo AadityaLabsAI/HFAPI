@@ -4,7 +4,7 @@
 
 # Core Telegram Bot Dependencies - ESSENTIAL
 # Latest stable version with full Python 3.12.2 support and security fixes
-python-telegram-bot[ext]==22.4
+python-telegram-bot[ext]==22.8
 
 # AI and ML Dependencies - ESSENTIAL
 # Latest version with security patches and Python 3.12.2 compatibility
