@@ -58,7 +58,7 @@ psutil==7.1.0
 
 # Version validation and dependency management - ESSENTIAL
 # packaging: Required by dependency_validator.py for version checking
-packaging>=24.0
+packaging>=26.3
 
 # Performance optimizations - Linux only
 # uvloop: Latest stable version with Python 3.11 support
