@@ -2,7 +2,7 @@
 # Optimized for Python 3.12.2 deployment with latest security patches
 # Updated October 2025 for Replit background worker deployment
 
-# Core Telegram Bot Dependencies - ESSENTIAL  
+# Core Telegram Bot Dependencies - ESSENTIAL
 # Latest stable version with full Python 3.12.2 support and security fixes
 python-telegram-bot[ext]==22.4
 
@@ -77,10 +77,11 @@ opencv-python-headless==4.12.0.88
 pytesseract==0.3.13
 
 # Additional dependencies for full feature set
-# aiofiles: Latest stable version for async file operations
+# aiofiles: Latest stable version
 # requests: Updated to 2.32.5 with CVE-2024-47081 security fix
 aiofiles==24.1.0
 requests==2.32.5
 
 # Testing Dependencies (for development only)
 pytest==8.3.4
+pytest-asyncio==0.25.3
