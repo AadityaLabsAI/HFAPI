@@ -66,7 +66,7 @@ uvloop==0.20.0; sys_platform == "linux"
 
 # JSON performance optimization
 # orjson: Latest version with Python 3.9-3.14 support
-orjson==3.11.3
+orjson==3.12.0
 
 # Optional dependencies for enhanced functionality
 # numpy: Compatible version with opencv-python-headless requirements
