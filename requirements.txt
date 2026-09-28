@@ -62,7 +62,7 @@ packaging>=24.0
 
 # Performance optimizations - Linux only
 # uvloop: Latest stable version with Python 3.11 support
-uvloop==0.20.0; sys_platform == "linux"
+uvloop==0.22.1; sys_platform == "linux"
 
 # JSON performance optimization
 # orjson: Latest version with Python 3.9-3.14 support
